@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+requests
+beautifulsoup4
+PyPDF2
+pdfplumber
+PyMuPDF
+python-multipart
+jinja2
+lxml
