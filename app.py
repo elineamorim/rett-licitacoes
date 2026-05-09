@@ -968,6 +968,7 @@ body{background:#f4f7fc;color:#081f4d}.wrapper{display:flex;min-height:100vh}
 .title{font-size:56px;font-style:italic;font-family:Georgia,serif;font-weight:700;color:#071b63;line-height:1}
 .subtitle{font-size:20px;color:#0a47ff;font-weight:800;margin-top:4px}.user{font-weight:800;font-size:22px}
 .searchbar{display:flex;gap:10px;margin-top:18px}.searchbar input{flex:1;height:56px;border:1px solid #dbe4f2;border-radius:14px;padding:0 18px;font-size:17px}
+.searchbar select{height:56px;border:1px solid #dbe4f2;border-radius:14px;padding:0 14px;font-size:15px;font-weight:700;color:#081f4d;background:white;min-width:170px}
 .searchbar button{width:150px;border:none;background:#0a47ff;color:#fff;font-weight:800;font-size:16px;border-radius:14px;cursor:pointer}
 .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:18px}.card{background:#fff;border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.04)}
 .card h4{font-size:13px;color:#5b6d95}.card h2{font-size:34px;margin-top:10px;color:#081f4d}
@@ -1003,6 +1004,27 @@ td{padding:12px;border-bottom:1px solid #edf1f7;font-size:13px;vertical-align:to
 </div>
 <div class="searchbar">
 <input id="busca" placeholder="Digite motorista, limpeza, medicamento, engenharia...">
+
+<select id="filtroUfSelect" onchange="aplicarFiltrosTopo()">
+<option value="">Todas as UFs</option>
+<option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option>
+<option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option>
+<option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option>
+<option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option>
+<option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option>
+<option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option>
+<option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+</select>
+
+<select id="filtroModalidadeSelect" onchange="aplicarFiltrosTopo()">
+<option value="">Todas as modalidades</option>
+<option value="Pregão - Eletrônico">Pregão - Eletrônico</option>
+<option value="Concorrência - Eletrônica">Concorrência - Eletrônica</option>
+<option value="Dispensa">Dispensa</option>
+<option value="Credenciamento">Credenciamento</option>
+<option value="Leilão">Leilão</option>
+</select>
+
 <button onclick="limparFiltrosEBuscar()">Pesquisar</button>
 </div>
 <div class="cards">
@@ -1024,8 +1046,8 @@ td{padding:12px;border-bottom:1px solid #edf1f7;font-size:13px;vertical-align:to
 <div class="table-box">
 <h3>Licitações Reais do PNCP</h3>
 <table>
-<thead><tr><th>Órgão</th><th>Objeto</th><th>UF</th><th>Modalidade</th><th>Valor Estimado</th><th>Início Proposta</th><th>Fim Proposta</th><th>Ações</th></tr></thead>
-<tbody id="resultado"><tr><td colspan="8">Carregando licitações do Brasil...</td></tr></tbody>
+<thead><tr><th>Órgão</th><th>Objeto</th><th>UF</th><th>Modalidade</th><th>Início Proposta</th><th>Fim Proposta</th><th>Ações</th></tr></thead>
+<tbody id="resultado"><tr><td colspan="7">Carregando licitações do Brasil...</td></tr></tbody>
 </table>
 <div class="paginacao"><button onclick="voltarPagina()">‹ Anterior</button><button class="ativo" id="paginaTexto">Página 1</button><button onclick="proximaPagina()">Próxima ›</button></div>
 </div>
@@ -1041,6 +1063,21 @@ function atualizarCardsEFiltros(){
 document.getElementById("cardUf").innerText=filtroUF||"Brasil";
 document.getElementById("cardMod").innerText=filtroModalidade?filtroModalidade.split(" ")[0]:"Todas";
 document.getElementById("filtroInfo").innerText=(filtroUF?("UF: "+filtroUF):"Brasil inteiro")+" | "+(filtroModalidade?("Modalidade: "+filtroModalidade):"Todas as modalidades");
+
+let ufSelect=document.getElementById("filtroUfSelect");
+let modSelect=document.getElementById("filtroModalidadeSelect");
+if(ufSelect){ufSelect.value=filtroUF||""}
+if(modSelect){modSelect.value=filtroModalidade||""}
+}
+
+function aplicarFiltrosTopo(){
+let ufSelect=document.getElementById("filtroUfSelect");
+let modSelect=document.getElementById("filtroModalidadeSelect");
+
+filtroUF=ufSelect?ufSelect.value:"";
+filtroModalidade=modSelect?modSelect.value:"";
+
+buscar(1);
 }
 function atualizarGraficoModalidade(modalidades){
 let labels=Object.keys(modalidades), valores=Object.values(modalidades);
@@ -1064,7 +1101,15 @@ polygonSeries.mapPolygons.template.setAll({tooltipText:"{name}: {value} licitaç
 polygonSeries.set("heatRules",[{target:polygonSeries.mapPolygons.template,dataField:"value",min:am5.color(0xbcd8ff),max:am5.color(0x0a47ff),key:"fill"}]);
 polygonSeries.mapPolygons.template.events.on("click",function(ev){let data=ev.target.dataItem.dataContext;if(data&&data.id){filtroUF=data.id.replace("BR-","");buscar(1)}});
 });
-function limparFiltrosEBuscar(){filtroModalidade="";filtroUF="";buscar(1)}
+function limparFiltrosEBuscar(){
+filtroModalidade="";
+filtroUF="";
+let ufSelect=document.getElementById("filtroUfSelect");
+let modSelect=document.getElementById("filtroModalidadeSelect");
+if(ufSelect){ufSelect.value=""}
+if(modSelect){modSelect.value=""}
+buscar(1);
+}
 async function buscar(pagina){
 paginaAtual=pagina;
 let termo=document.getElementById("busca").value.trim();
@@ -1077,10 +1122,10 @@ document.getElementById("pagAtual").innerText=dados.pagina;
 document.getElementById("paginaTexto").innerText="Página "+dados.pagina;
 atualizarGraficoModalidade(dados.modalidades||{});atualizarMapa(dados.ufs||{});atualizarCardsEFiltros();
 let html="";
-if(dados.items.length==0){html="<tr><td colspan='8'>Nenhum resultado encontrado.</td></tr>"}
+if(dados.items.length==0){html="<tr><td colspan='7'>Nenhum resultado encontrado.</td></tr>"}
 else{dados.items.forEach(i=>{
 let analisar="/analisar?link="+encodeURIComponent(i.link)+"&objeto="+encodeURIComponent(i.objeto)+"&orgao="+encodeURIComponent(i.orgao)+"&modalidade="+encodeURIComponent(i.modalidade)+"&valor="+encodeURIComponent(i.valor);
-html+=`<tr><td>${i.orgao}</td><td>${i.objeto}</td><td>${i.uf}</td><td><span class='badge blue'>${i.modalidade}</span></td><td>${formatarValor(i.valor)}</td><td>${formatarData(i.inicio)}</td><td>${formatarData(i.fim)}</td><td><a class='action open' target='_blank' href='${i.link}'>Abrir</a><a class='action ai' href='${analisar}'>Analisar</a></td></tr>`;
+html+=`<tr><td>${i.orgao}</td><td>${i.objeto}</td><td>${i.uf}</td><td><span class='badge blue'>${i.modalidade}</span></td><td>${formatarData(i.inicio)}</td><td>${formatarData(i.fim)}</td><td><a class='action open' target='_blank' href='${i.link}'>Abrir</a><a class='action ai' href='${analisar}'>Analisar</a></td></tr>`;
 })}
 document.getElementById("resultado").innerHTML=html;
 }
