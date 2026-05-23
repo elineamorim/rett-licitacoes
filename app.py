@@ -39,134 +39,131 @@ def normalizar_texto_busca(texto):
     return texto
 
 
-def palavra_exata_no_objeto(objeto, termo):
+def campo_item(item, *nomes, padrao=""):
     """
-    Filtra o resultado pelo OBJETO da licitação.
-    Evita falso positivo do PNCP, como pesquisar 'motorista' e aparecer ar-condicionado.
+    Busca o mesmo campo em formatos diferentes que a API do PNCP pode retornar.
+    Exemplo: orgao_nome, orgaoNome, orgao.nome.
+    """
+    for nome in nomes:
+        atual = item
+        ok = True
+        for parte in nome.split("."):
+            if isinstance(atual, dict) and parte in atual:
+                atual = atual.get(parte)
+            else:
+                ok = False
+                break
+        if ok and atual not in (None, ""):
+            return atual
+    return padrao
+
+
+def lista_itens_pncp(dados):
+    """
+    O PNCP pode devolver a lista em chaves diferentes.
+    Aqui aceitamos todas as principais para a tabela não ficar vazia à toa.
+    """
+    if isinstance(dados, list):
+        return dados
+    if not isinstance(dados, dict):
+        return []
+    return (
+        dados.get("items")
+        or dados.get("data")
+        or dados.get("content")
+        or dados.get("resultado")
+        or dados.get("resultados")
+        or []
+    )
+
+
+def total_pncp(dados, fallback=0):
+    """Pega o total em chaves diferentes da resposta do PNCP."""
+    if not isinstance(dados, dict):
+        return fallback
+    return (
+        dados.get("total")
+        or dados.get("totalRegistros")
+        or dados.get("totalElements")
+        or dados.get("count")
+        or fallback
+        or 0
+    )
+
+
+def objeto_do_item(item):
+    """Mantém o objeto exato da licitação, sem resumir."""
+    return campo_item(
+        item,
+        "objetoCompra",
+        "objeto",
+        "informacaoComplementar",
+        "description",
+        "title",
+        "descricaoObjeto",
+        "objetoContratacao",
+        padrao=""
+    )
+
+
+def busca_confere_com_objeto(objeto, termo):
+    """
+    Filtro mais inteligente no OBJETO.
+    Antes estava muito rígido e zerava a tabela mesmo quando o PNCP tinha total.
+    Agora aceita singular/plural, sinônimos e termos compostos como 'cadeira escolar'.
     """
     termo = normalizar_texto_busca(termo)
     objeto = normalizar_texto_busca(objeto)
 
     if not termo:
         return True
+    if not objeto:
+        return False
 
     sinonimos = {
-        "motorista": [
-            "motorista",
-            "motoristas",
-            "condutor",
-            "condutores",
-            "cnh b",
-            "cnh d",
-            "servico de motorista",
-            "servicos de motorista",
-            "mao de obra motorista",
+        "cadeira escolar": [
+            "cadeira escolar", "cadeiras escolares", "carteira escolar", "carteiras escolares",
+            "conjunto escolar", "conjuntos escolares", "mobiliario escolar", "moveis escolares",
+            "mobiliario para sala de aula", "mesa escolar", "mesas escolares", "conjunto aluno"
         ],
-
-        "veiculo": [
-            "veiculo",
-            "veiculos",
-            "locacao de veiculos",
-            "locacao de veiculo",
-            "aluguel de veiculos",
-            "aluguel de veiculo",
-            "transporte terrestre",
-            "pick up",
-            "pickup",
-            "van",
-            "caminhonete",
-        ],
-
-        "veiculos": [
-            "veiculo",
-            "veiculos",
-            "locacao de veiculos",
-            "locacao de veiculo",
-            "aluguel de veiculos",
-            "aluguel de veiculo",
-            "transporte terrestre",
-            "pick up",
-            "pickup",
-            "van",
-            "caminhonete",
-        ],
-
-        "limpeza": [
-            "limpeza",
-            "conservacao",
-            "higienizacao",
-            "asseio",
-            "servicos de limpeza",
-            "servico de limpeza",
-        ],
-
-        "medicamento": [
-            "medicamento",
-            "medicamentos",
-            "farmaco",
-            "farmacos",
-            "insumo farmaceutico",
-            "insumos farmaceuticos",
-        ],
-
-        "medicamentos": [
-            "medicamento",
-            "medicamentos",
-            "farmaco",
-            "farmacos",
-            "insumo farmaceutico",
-            "insumos farmaceuticos",
-        ],
-
-        "engenharia": [
-            "engenharia",
-            "obra",
-            "obras",
-            "reforma",
-            "construcao",
-            "manutencao predial",
-            "servicos de engenharia",
-            "servico de engenharia",
-        ],
-
-        "horas voo": [
-            "horas voo",
-            "hora voo",
-            "transporte aereo",
-            "helicoptero",
-            "aeronave",
-            "asa fixa",
-            "asa rotativa",
-        ],
-
-        "hora voo": [
-            "horas voo",
-            "hora voo",
-            "transporte aereo",
-            "helicoptero",
-            "aeronave",
-            "asa fixa",
-            "asa rotativa",
-        ],
+        "cadeira": ["cadeira", "cadeiras", "carteira", "carteiras", "assento", "assentos"],
+        "motorista": ["motorista", "motoristas", "condutor", "condutores", "cnh b", "cnh d", "servico de motorista", "servicos de motorista", "mao de obra motorista"],
+        "veiculo": ["veiculo", "veiculos", "locacao de veiculos", "locacao de veiculo", "aluguel de veiculos", "aluguel de veiculo", "transporte terrestre", "pick up", "pickup", "van", "caminhonete"],
+        "veiculos": ["veiculo", "veiculos", "locacao de veiculos", "locacao de veiculo", "aluguel de veiculos", "aluguel de veiculo", "transporte terrestre", "pick up", "pickup", "van", "caminhonete"],
+        "limpeza": ["limpeza", "conservacao", "higienizacao", "asseio", "servicos de limpeza", "servico de limpeza"],
+        "medicamento": ["medicamento", "medicamentos", "farmaco", "farmacos", "insumo farmaceutico", "insumos farmaceuticos"],
+        "medicamentos": ["medicamento", "medicamentos", "farmaco", "farmacos", "insumo farmaceutico", "insumos farmaceuticos"],
+        "engenharia": ["engenharia", "obra", "obras", "reforma", "construcao", "manutencao predial", "servicos de engenharia", "servico de engenharia"],
+        "horas voo": ["horas voo", "hora voo", "transporte aereo", "helicoptero", "aeronave", "asa fixa", "asa rotativa"],
+        "hora voo": ["horas voo", "hora voo", "transporte aereo", "helicoptero", "aeronave", "asa fixa", "asa rotativa"],
     }
 
-    termos = sinonimos.get(termo, [termo])
+    termos_para_testar = sinonimos.get(termo, [termo])
 
-    objeto_com_espaco = f" {objeto} "
-
-    for palavra in termos:
-        palavra = normalizar_texto_busca(palavra)
-        if not palavra:
-            continue
-
-        # expressão exata/composta dentro do objeto
-        if f" {palavra} " in objeto_com_espaco:
+    # 1) expressão completa: 'cadeira escolar'
+    for t in termos_para_testar:
+        t = normalizar_texto_busca(t)
+        if t and t in objeto:
             return True
 
-    return False
+    # 2) busca por palavras: permite 'cadeira escolar' achar objeto com 'aquisição de cadeiras para unidades escolares'
+    palavras = [p for p in termo.split() if len(p) >= 3]
+    if not palavras:
+        return True
+
+    encontrou_alguma = any(p in objeto for p in palavras)
+    encontrou_todas = all(p in objeto for p in palavras)
+
+    # Para termos compostos, se encontrar todas as palavras é aderente.
+    if len(palavras) > 1 and encontrou_todas:
+        return True
+
+    # Para evitar zerar a tabela, aceita alguma palavra quando o PNCP já pesquisou pelo q.
+    return encontrou_alguma
 
 
-
+# compatibilidade com chamadas antigas do código
+palavra_exata_no_objeto = busca_confere_com_objeto
 
 def montar_link(item_url):
     if not item_url:
@@ -205,41 +202,52 @@ def buscar(q: str = "", pagina: int = 1, uf: str = "", modalidade: str = ""):
         dados = consultar_pncp(q=q, pagina=pagina, uf=uf, modalidade_id=modalidade_id, tam=100)
 
         itens = []
-        for x in dados.get("items", []):
-            objeto = (
-                x.get("description", "")
-                or x.get("title", "")
-                or x.get("objetoCompra", "")
-                or x.get("objeto", "")
-            )
+        lista = lista_itens_pncp(dados)
 
-            # Filtro real por palavra-chave no OBJETO.
-            # Se o usuário pesquisar "motorista", só entra resultado cujo objeto fale de motorista/condutor/CNH.
-            if q and not palavra_exata_no_objeto(objeto, q):
+        for x in lista:
+            objeto = objeto_do_item(x)
+
+            # Filtro real pelo OBJETO, mas sem rigidez excessiva.
+            # Isso corrige o erro: total aparece no card, mas tabela fica vazia.
+            if q and not busca_confere_com_objeto(objeto, q):
                 continue
 
+            item_url = campo_item(
+                x,
+                "item_url",
+                "itemUrl",
+                "url",
+                "link",
+                "linkCompra",
+                "urlCompra",
+                "uri",
+                padrao=""
+            )
+
             itens.append({
-                "id": x.get("id", ""),
-                "orgao": x.get("orgao_nome", "-"),
-                "objeto": objeto,
-                "uf": x.get("uf", "-"),
-                "modalidade": x.get("modalidade_licitacao_nome", "-"),
-                "inicio": x.get("data_inicio_vigencia", "-"),
-                "fim": x.get("data_fim_vigencia", "-"),
-                "valor": x.get("valor_global", "-"),
-                "link": montar_link(x.get("item_url", ""))
+                "id": campo_item(x, "id", "numeroControlePNCP", "numeroControlePncp", padrao=""),
+                "orgao": campo_item(x, "orgao_nome", "orgaoNome", "orgao.nome", "unidadeOrgao.nomeUnidade", "nomeOrgao", padrao="-"),
+                "objeto": objeto or "Objeto não informado no retorno da API.",
+                "uf": campo_item(x, "uf", "unidadeOrgao.ufNome", "unidadeOrgao.ufSigla", "orgao.uf", padrao="-"),
+                "modalidade": campo_item(x, "modalidade_licitacao_nome", "modalidadeNome", "modalidade_licitacao", "modalidadeContratacaoNome", padrao="-"),
+                "inicio": campo_item(x, "data_inicio_vigencia", "dataInicioVigencia", "dataAberturaProposta", "data_inicio_recebimento_proposta", "dataInicioRecebimentoProposta", padrao="-"),
+                "fim": campo_item(x, "data_fim_vigencia", "dataFimVigencia", "dataEncerramentoProposta", "data_fim_recebimento_proposta", "dataFimRecebimentoProposta", padrao="-"),
+                "valor": campo_item(x, "valor_global", "valorGlobal", "valorTotalEstimado", "valor_total_estimado", padrao="-"),
+                "link": montar_link(item_url)
             })
 
         def total_modalidade(par):
             nome, mid = par
             try:
-                return nome, consultar_pncp(q=q, uf=uf, modalidade_id=mid, tam=1).get("total", 0)
+                d = consultar_pncp(q=q, uf=uf, modalidade_id=mid, tam=1)
+                return nome, total_pncp(d, 0)
             except Exception:
                 return nome, 0
 
         def total_uf(estado):
             try:
-                return estado, consultar_pncp(q=q, uf=estado, modalidade_id=modalidade_id, tam=1).get("total", 0)
+                d = consultar_pncp(q=q, uf=estado, modalidade_id=modalidade_id, tam=1)
+                return estado, total_pncp(d, 0)
             except Exception:
                 return estado, 0
 
@@ -248,7 +256,7 @@ def buscar(q: str = "", pagina: int = 1, uf: str = "", modalidade: str = ""):
             ufs = dict(executor.map(total_uf, UFS))
 
         return JSONResponse({
-            "total_pncp": dados.get("total", 0),
+            "total_pncp": total_pncp(dados, len(itens)),
             "pagina": pagina,
             "items": itens,
             "modalidades": modalidades,
@@ -264,7 +272,6 @@ def buscar(q: str = "", pagina: int = 1, uf: str = "", modalidade: str = ""):
             "ufs": {},
             "erro": str(e)
         })
-
 
 def extrair_partes_link(link):
     try:
